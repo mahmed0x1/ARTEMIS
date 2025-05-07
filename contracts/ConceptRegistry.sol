@@ -1,122 +1,55 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.25;
 
 /**
- * @title ARTEMIS Concept Registry
- * @dev Manages copyright policies and training compliance proofs for diffusion models
+ * @title ConceptRegistry
+ * @dev Manages copyright licenses for AI training datasets via content hashes.
  */
 contract ConceptRegistry {
-    // Struct to store policy information
-    struct Policy {
+    struct ImageLicense {
         address owner;
-        string conceptCID; // IPFS hash of concept description
-        uint256 timestamp;
-        bool isActive;
+        string spdxId;          // e.g., "CC-BY-4.0", "PDM-1.0" (Public Domain)
+        uint256 registeredAt;   // Block timestamp
+        bool revoked;           // Revocation status
     }
 
-    // Struct to store model training proofs
-    struct TrainingProof {
-        bytes32 proofHash;
-        uint256 epoch;
-        uint256 timestamp;
-    }
-
-    // State variables
-    mapping(bytes32 => Policy) public policies;
-    mapping(address => TrainingProof[]) public modelProofs;
-    address public admin;
-
+    // Mapping: contentHash (SHA-256) => License
+    mapping(bytes32 => ImageLicense) public licenses;
+    
     // Events
-    event PolicyRegistered(bytes32 indexed policyId, address indexed owner, string conceptCID);
-    event PolicyDeactivated(bytes32 indexed policyId);
-    event ProofSubmitted(address indexed modelAddress, uint256 epoch, bytes32 proofHash);
+    event Registered(bytes32 indexed contentHash, address owner, string spdxId);
+    event Revoked(bytes32 indexed contentHash, address owner);
 
-    // Modifier for admin-only functions
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "Only admin can call this");
-        _;
-    }
-
-    constructor() {
-        admin = msg.sender;
-    }
-
-    /**
-     * @dev Registers a new copyright policy
-     * @param _conceptCID IPFS hash of the concept description
-     * @return policyId The generated policy ID
-     */
-    function registerPolicy(string memory _conceptCID) external returns (bytes32) {
-        bytes32 policyId = keccak256(abi.encodePacked(_conceptCID, block.timestamp, msg.sender));
+    // Register a new image license
+    function registerImage(
+        bytes32 _contentHash,
+        string calldata _spdxId
+    ) external {
+        require(licenses[_contentHash].owner == address(0), "Already registered");
         
-        policies[policyId] = Policy({
+        licenses[_contentHash] = ImageLicense({
             owner: msg.sender,
-            conceptCID: _conceptCID,
-            timestamp: block.timestamp,
-            isActive: true
+            spdxId: _spdxId,
+            registeredAt: block.timestamp,
+            revoked: false
         });
-
-        emit PolicyRegistered(policyId, msg.sender, _conceptCID);
-        return policyId;
-    }
-
-    /**
-     * @dev Deactivates a policy
-     * @param _policyId The policy ID to deactivate
-     */
-    function deactivatePolicy(bytes32 _policyId) external onlyAdmin {
-        require(policies[_policyId].isActive, "Policy already inactive");
-        policies[_policyId].isActive = false;
-        emit PolicyDeactivated(_policyId);
-    }
-
-    /**
-     * @dev Submits a training proof for a model
-     * @param _proofHash Hash of the zk-SNARK proof
-     * @param _epoch The training epoch number
-     */
-    function submitProof(bytes32 _proofHash, uint256 _epoch) external {
-        modelProofs[msg.sender].push(TrainingProof({
-            proofHash: _proofHash,
-            epoch: _epoch,
-            timestamp: block.timestamp
-        }));
-
-        emit ProofSubmitted(msg.sender, _epoch, _proofHash);
-    }
-
-    /**
-     * @dev Gets all active policies
-     * @return activePolicies Array of active policy IDs
-     */
-    function getActivePolicies() external view returns (bytes32[] memory) {
-        bytes32[] memory activePolicies = new bytes32[](getActivePolicyCount());
-        uint256 counter = 0;
         
-        // This is inefficient for large numbers of policies - consider using
-        // an indexed approach in production
-        bytes32[] memory allPolicyIds = getAllPolicyIds();
-        for (uint256 i = 0; i < allPolicyIds.length; i++) {
-            if (policies[allPolicyIds[i]].isActive) {
-                activePolicies[counter] = allPolicyIds[i];
-                counter++;
-            }
-        }
+        emit Registered(_contentHash, msg.sender, _spdxId);
+    }
+
+    // Revoke an existing license (only owner)
+    function revokeImage(bytes32 _contentHash) external {
+        ImageLicense storage license = licenses[_contentHash];
+        require(license.owner == msg.sender, "Not owner");
+        require(!license.revoked, "Already revoked");
         
-        return activePolicies;
+        license.revoked = true;
+        emit Revoked(_contentHash, msg.sender);
     }
 
-    // Helper function to get all policy IDs (simplified - in production use events)
-    function getAllPolicyIds() internal pure returns (bytes32[] memory) {
-        // In a real implementation, you would track policy IDs when they're created
-        // This is a placeholder that assumes you'll modify it based on your needs
-        bytes32[] memory dummy = new bytes32[](0);
-        return dummy;
-    }
-
-    // Helper function to count active policies
-    function getActivePolicyCount() internal view returns (uint256) {
-        // Similarly, this should be replaced with actual tracking
-        return 0;
+    // Check if an image is revokable (public domain cannot be revoked)
+    function isRevokable(bytes32 _contentHash) public view returns (bool) {
+        ImageLicense storage license = licenses[_contentHash];
+        return (keccak256(abi.encodePacked(license.spdxId)) != keccak256(abi.encodePacked("PDM-1.0")));
     }
 }
