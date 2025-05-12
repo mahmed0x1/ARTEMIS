@@ -70,8 +70,9 @@ processed_dataset = processed_dataset.filter(
 # Save processed data
 processed_dataset.save_to_disk(
     "pd12m_subset_preprocessed",
-    num_proc=NUM_PROC,
-    max_shard_size="500MB"
+    num_proc=1,  # ← Must use 1 process
+    max_shard_size="200MB",
+    storage_options={"allow_mmap": False}  # Disable memory mapping
 )
 
 print(f"Successfully processed {len(processed_dataset)} images")
