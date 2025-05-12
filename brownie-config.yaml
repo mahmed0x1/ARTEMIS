@@ -1,0 +1,6 @@
+networks:
+  default: polygon-amoy
+  polygon-amoy:
+    host: https://rpc-amoy.polygon.technology
+    chainid: 80002
+    explorer: https://amoy.polygonscan.com

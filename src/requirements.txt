@@ -1,6 +1,0 @@
-web3==6.0.0
-torch>=2.0.0
-diffusers>=0.20.0
-transformers
-clip
-python-dotenv

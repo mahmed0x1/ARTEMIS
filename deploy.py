@@ -1,4 +1,4 @@
-from brownie import ConceptRegistry, accounts, network
+from brownie import ConceptRegistry, accounts 
 import pandas as pd
 from datasets import Dataset
 

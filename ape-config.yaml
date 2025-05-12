@@ -1,8 +1,0 @@
-name: ARTEMIS
-plugins:
-  - name: ape-polygon
-
-networks:
-  default: amoy:testnet
-  amoy:
-    default_provider: alchemy

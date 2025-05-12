@@ -1,6 +1,9 @@
-# Ape stuff
-.build/
-.cache/
+# build and dataset
+/build
+/pd12m_subset_preprocessed
+/pd12m_with_ownership
+/reports
+/interfaces
 
 # Python
 .env

@@ -33,9 +33,8 @@ df["owner"] = "public_domain"
 df["is_revoked"] = False
 df["content_hash"] = ""
 
-owners = ["alice", "bob", "chelsea", "dylan", "elana", "fedora", 
-          "george", "hannah", "ivan", "julia", "kyle", "luna"]
-min_images, max_images = 100, 200
+owners = ["alice", "bob", "chelsea",]
+min_images, max_images = 2, 3
 
 public_domain_indices = df[df["owner"] == "public_domain"].index.tolist()
 
@@ -90,7 +89,6 @@ missing = required_columns - set(df.columns)
 if missing:
     raise ValueError(f"Missing columns: {missing}")
 
-
 # Convert back to Dataset with memory monitoring
 logger.info("Creating final dataset...")
 log_memory_usage()
@@ -106,12 +104,12 @@ features = Features({
 logger.info("Building dataset with metadata...")
 dataset_with_metadata = Dataset.from_pandas(df, features=Features(features))
 
-# Save with progress monitoring
+# Save without multiprocessing
 logger.info("Saving dataset...")
 
 dataset_with_metadata.save_to_disk(
     "pd12m_with_ownership",
-    num_proc=48,
+    num_proc=1,  # ← Changed to single process
     max_shard_size="500MB"
 )
 

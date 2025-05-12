@@ -24,6 +24,5 @@ ARTEMIS is the first framework to embed smart-contract-driven policy enforcement
 
 - Python 3.9+
 - Node.js 16+ (for smart contract development)
-- Foundry (for Solidity development)
+- Brownie (for Solidity development)
 - NVIDIA GPU with CUDA 11.7+
-

@@ -3,11 +3,9 @@ from PIL import Image as PILImage
 import torchvision.transforms as T
 import io
 import requests
-from multiprocessing import cpu_count
 
 # Configuration
-SUBSET_FRACTION = 0.1  # 0.1% of full dataset
-NUM_PROC = 48
+SUBSET_FRACTION = 0.0001  # 0.0001% of full dataset
 MAX_RETRIES = 3
 TIMEOUT = 10
 
@@ -51,26 +49,24 @@ def preprocess(example):
     example["text"] = example["caption"][:512]
     return example
 
-# Process subset
+# Process subset (single-threaded)
 processed_dataset = subset_dataset.map(
     preprocess,
     remove_columns=["url", "caption"],
-    num_proc=NUM_PROC,
     batched=False,
     load_from_cache_file=False,
     desc=f"Processing {subset_size} images"
 )
 
-# Filter failures
+# Filter failures (single-threaded)
 processed_dataset = processed_dataset.filter(
-    lambda x: x["pixel_values"] is not None,
-    num_proc=NUM_PROC
+    lambda x: x["pixel_values"] is not None
 )
 
 # Save processed data
 processed_dataset.save_to_disk(
     "pd12m_subset_preprocessed",
-    num_proc=1,  # ← Must use 1 process
+    num_proc=1,  # ← Still required to be 1
     max_shard_size="200MB",
     storage_options={"allow_mmap": False}  # Disable memory mapping
 )
