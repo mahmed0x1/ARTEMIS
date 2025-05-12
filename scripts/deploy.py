@@ -1,30 +1,52 @@
-from ape import accounts, project
-import hashlib
+from brownie import ConceptRegistry, accounts, network
+import pandas as pd
+from datasets import Dataset
 
-def sha256_hex(data: str) -> bytes:
-    return bytes.fromhex(hashlib.sha256(data.encode()).hexdigest())
+def bytes32(data: bytes) -> bytes:
+    """Ensure bytes are exactly 32 bytes long"""
+    return data.ljust(32, b'\0')[:32]
 
 def main():
-    dev = accounts.load("dev")
-    dev.set_autosign(True)
+    # Load dev account
+    dev = accounts.load("admin")  # Ensure you've added this account via `brownie accounts`
 
+    # Deploy ConceptRegistry contract
     print("Deploying ConceptRegistry...")
-    registry = project.ConceptRegistry.deploy(sender=dev)
-    print(f"Contract deployed to: {registry.address}")
+    registry = ConceptRegistry.deploy({'from': dev})
+    print(f"ConceptRegistry deployed to: {registry.address}")
 
-    # Example content to hash
-    image_data = "example-image-123"
-    content_hash = sha256_hex(image_data)
-    spdx_id = "CC-BY-4.0"
+    # Load dataset
+    print("Loading dataset...")
+    dataset = Dataset.load_from_disk("pd12m_with_ownership")
+    df = dataset.to_pandas()
 
-    # Register image license
-    tx = registry.registerImage(content_hash, spdx_id, sender=dev)
-    print("Image license registered.")
+    # check what columns we have in our dataframe
+    # print(df.columns.tolist())
 
-    # Read back license info from the mapping
-    license = registry.licenses(content_hash)
-    print("License Info:")
-    print(f" - Owner: {license.owner}")
-    print(f" - SPDX ID: {license.spdxId}")
-    print(f" - Registered At: {license.registeredAt}")
-    print(f" - Revoked: {license.revoked}")
+    # Validate required columns
+    if not {'content_hash'}.issubset(df.columns):
+        raise ValueError("Dataset must include 'content_hash' column.")
+
+    # Register sample licenses from the dataset
+    print("Registering sample licenses...")
+
+    df_cleaned  = df[['pixel_values', 'text', 'owner', 'is_revoked', 'content_hash']].copy()
+
+    for row in df_cleaned.itertuples(index=False):
+        if row.owner == "public_domain":
+            continue
+        else:
+            print(f"Registering the license of owner: {row.owner}")
+            try:
+                content_hash = bytes.fromhex(row.content_hash)
+                spdx_id = 'MIT'
+                #ensure content_hash is in 32 bytes to match solidity contract definiton
+                content_hash_bytes32 = bytes32(content_hash)
+                tx = registry.registerImage(content_hash_bytes32, spdx_id, {'from': dev})
+                # wait for confirmation of transaction
+                tx.wait(1)
+                print(f"✔ Registered: {row.content_hash} with SPDX: {spdx_id}")
+            except Exception as e:
+                print(f"✖ Failed to register: {row.content_hash}, Error: {e}")
+
+    print("🎉 Initial dataset licenses registered successfully!")
